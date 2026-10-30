@@ -1,0 +1,67 @@
+const candles = document.querySelectorAll('.candle');
+const flames = document.querySelectorAll('.flame');
+const instructionText = document.getElementById('instruction-text');
+const micBtn = document.getElementById('mic-btn');
+const cardMessage = document.getElementById('card-message');
+
+let blownOutCount = 0;
+
+flames.forEach((flame) => {
+    flame.addEventListener('click', () => {
+        if (!flame.classList.contains('out')) {
+            extinguishFlame(flame);
+        }
+    });
+});
+
+function extinguishFlame(flame) {
+    flame.classList.add('out');
+    blownOutCount++;
+
+    if (blownOutCount === flames.length) {
+        instructionText.innerText = "Breathalyzer result: 0.4"
+        instructionText.style.color = "#00d2ff";
+        instructionText.style.fontWeight = "bold";
+        
+        // Hide the mic button & reveal the card message with a smooth animation
+        micBtn.style.display = "none";
+        cardMessage.classList.add('revealed');
+    }
+}
+
+micBtn.addEventListener('click', async () => {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const mic = audioContext.createMediaStreamSource(stream);
+        const analyser = audioContext.createAnalyser();
+        
+        analyser.fftSize = 256;
+        mic.connect(analyser);
+
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+        micBtn.innerText = "🎤 Listening... Blow now!";
+        micBtn.style.opacity = "0.7";
+
+        function checkVolume() {
+            analyser.getByteFrequencyData(dataArray);
+            let sum = 0;
+            for (let i = 0; i < dataArray.length; i++) {
+                sum += dataArray[i];
+            }
+            let average = sum / dataArray.length;
+
+            if (average > 45) { 
+                flames.forEach(flame => extinguishFlame(flame));
+            }
+
+            if (blownOutCount < flames.length) {
+                requestAnimationFrame(checkVolume);
+            }
+        }
+
+        checkVolume();
+    } catch (err) {
+        alert("Δεν μασ κάνει την χάρη το μικρόφωνο, πάτα τα κεράκια!");
+    }
+});
